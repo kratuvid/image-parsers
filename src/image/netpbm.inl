@@ -14,9 +14,9 @@ export namespace image
 			exception(std::string_view msg) :image::exception(msg) {}
 			
 			template<class... Args>
-			void enact(std::string_view format, Args&&... args)
+			static void enact(std::string_view format, Args&&... args)
 			{
-				image::exception::enact<exception>("netpbm", format, args...);
+				throw exception(std::vformat(format, std::make_format_args(args...)));
 			}
 		};
 	};
