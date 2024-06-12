@@ -27,10 +27,10 @@ public:
 	_logger_manager& operator=(const _logger_manager&) = delete;
 	_logger_manager& operator=(_logger_manager&&) = delete;
 
-	void reset(void*&& ptr)
+	void set(void*&& ptr)
 	{
 		if (this->ptr)
-			free(this->ptr);
+			throw std::runtime_error("Can set a _logger_manager only once");
 		this->ptr = ptr;
 		ptr = nullptr;
 	}
@@ -51,7 +51,9 @@ public:
 
 export class logger
 {
-public:	
+	static inline size_t ref_count = 0;
+
+public:
 	enum class level
 	{
 		debug,
@@ -61,7 +63,7 @@ public:
 		criticial,
 		off
 	} m_level;
-	std::string m_name = "unassigned";
+	std::string m_name;
 
 	static constexpr std::array<std::string, 6> level_str {
 		"debug",
@@ -73,15 +75,12 @@ public:
 	};
 	static constexpr level default_level = level::info;
 
-	static inline size_t ref_count = 0;
-
 public:
 	logger(std::string_view name, level lvl = static_cast<enum level>(-1))
 	{
 		if (static_cast<int>(lvl) == -1)
 		{
-			auto current_logger = _global_logger.get<logger>();
-			m_level = current_logger->m_level;
+			m_level = global()->m_level;
 		} else m_level = default_level;
 		m_name = name;
 		ref_count++;
@@ -111,9 +110,9 @@ public:
 			if (!ptr_raw)
 				exception::enact("Failed to allocate memory for the global logger");
 			memset(ptr_raw, 0, sizeof(logger));
-			_global_logger.reset(std::move(ptr_raw));
-			_global_logger.get<logger>()->m_level = lvl;
-			_global_logger.get<logger>()->m_name = "global";
+			_global_logger.set(std::move(ptr_raw));
+			global()->m_level = lvl;
+			global()->m_name = "global";
 		}
 	}
 
@@ -125,8 +124,7 @@ public:
 	template<class... Args>
 	void log(enum level lvl, const std::string_view format, Args&&... args)
 	{
-		auto current_logger = _global_logger.get<logger>();
-		if (static_cast<int>(lvl) >= static_cast<int>(current_logger->m_level) && lvl != level::off)
+		if (static_cast<int>(lvl) >= static_cast<int>(global()->m_level) && lvl != level::off)
 			std::vprint_unicode(
 				stderr,
 				std::format("[{}] {}: {}\n", level_str[static_cast<int>(lvl)], m_name, format),
@@ -138,31 +136,31 @@ public:
 	{
 		log(level::debug, format, args...);
 	}
-	
+
 	template<class... Args>
 	void info(std::string_view format, Args&&... args)
 	{
 		log(level::info, format, args...);
 	}
-	
+
 	template<class... Args>
 	void warn(std::string_view format, Args&&... args)
 	{
 		log(level::warn, format, args...);
 	}
-	
+
 	template<class... Args>
 	void error(std::string_view format, Args&&... args)
 	{
 		log(level::error, format, args...);
 	}
-	
+
 	template<class... Args>
 	void critical(std::string_view format, Args&&... args)
 	{
 		log(level::criticial, format, args...);
 	}
-	
+
 public:
 	class exception : public std::runtime_error
 	{

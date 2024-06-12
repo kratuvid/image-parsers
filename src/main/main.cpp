@@ -16,7 +16,9 @@ int main()
 	
 	try
 	{
-		image::netpbm sample("assets/fractal-dragon-curve.ppm");
+		// image::netpbm sample("assets/fractal-dragon-curve.pbm");
+		image::netpbm sample("assets/short.pbm"), sample2("assets/short_binary.pbm"),
+			sample3("assets/fractal-dragon-curve.pbm");
 	}
 	catch (image::netpbm::exception& e)
 	{

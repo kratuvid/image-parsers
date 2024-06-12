@@ -10,6 +10,9 @@ import <vector>;
 import <variant>;
 import <memory>;
 import <fstream>;
+import <sstream>;
+import <cstring>;
+import <algorithm>;
 
 import logger;
 
@@ -18,7 +21,9 @@ namespace image
 	export class exception : public std::runtime_error
 	{
 	public:
-		exception(std::string_view msg) :std::runtime_error(msg.data()) {}
+		exception(std::string_view msg)
+			:std::runtime_error(msg.data())
+		{}
 	};
 };
 

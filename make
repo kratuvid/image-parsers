@@ -24,7 +24,7 @@ ld_flags = []
 
 sys_modules = \
     ['print', 'string_view', 'format', 'exception', 'string', 'vector', 'variant', 'cstdint', 'memory',
-     'fstream', 'cstring', 'cstddef', 'cstdlib', 'array'] + \
+     'fstream', 'cstring', 'cstddef', 'cstdlib', 'array', 'sstream', 'algorithm'] + \
     []
 
 # Properties: is module, primary dependencies
