@@ -2,6 +2,7 @@ import <string_view>;
 import <print>;
 import <vector>;
 import <math.h>;
+import <complex>;
 
 import logger;
 import image;
@@ -20,36 +21,44 @@ int main()
 	{
 		image::netpbm image;
 		{
-			image::netpbm::pgm flavor {};
+			image::netpbm::ppm flavor {};
 			flavor.max = 255;
 
 			auto& common = flavor.common;
-			common.width = 512; common.height = 512;
-			common.bpp = 8;
-			common.bits = common.width * common.height * 8;
+			common.width = common.height = 512;
+			common.bpp = 24;
+			common.bits = common.width * common.height * 24;
 			common.data = std::vector<uint8_t>(common.bits / 8, 0);
 
 			auto& data = common.data;
 
-			auto set = [&] (int x, int y, uint8_t with) {
-				const int land = y * int(common.height) + x;
-				if (land >= 0 and land < data.size())
-					data[land] = with;
+			auto set = [&] (int x, int y, uint32_t with) {
+				if ((x >= 0 && x < common.width) && (y >= 0 && y < common.height))
+				{
+					const int land = (y * int(common.height) + x) * 3;
+					data[land] = with & 0xff;
+					data[land+1] = (with >> 8) & 0xff;
+					data[land+2] = (with >> 16) & 0xff;
+				}
 			};
-			auto set_center = [&] (int x, int y, uint8_t with) {
+			auto set_center = [&] (int x, int y, uint32_t with) {
 				const int center[2] = {int(common.width) / 2, int(common.height) / 2};
-				set(center[0] + x, center[1] + y, with);
+				set(center[0] + x, center[1] + -y, with);
 			};
-			
-			for (float i = 0; i < 360; i += 0.01f)
+
+			for (float i = -(common.width/2.f); i < common.width/2.f; i += 1e-4f)
 			{
-				const float radius = 128;
-				set_center(cosf(i) * radius, sinf(i) * radius, 0xff);
+				const float x = i;
+				const float xx = x * 0.03f;
+				const float y = sinf(xx) * cosf(xx * 10) * 100.f, y2 = sinf(xx) * 100.f;
+
+				set_center(roundf(x), roundf(y), 0xf0'ff'0f);
+				set_center(roundf(x), roundf(y2), 0xa0'ff'0f);
 			}
 			
 			image.assign(flavor);
 		}
-		image.write("/dev/shm/canvas.pgm");
+		image.write("/dev/shm/canvas.ppm");
 	}
 	catch (image::netpbm::exception& e)
 	{
