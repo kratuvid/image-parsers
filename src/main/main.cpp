@@ -16,9 +16,29 @@ int main()
 	
 	try
 	{
-		// image::netpbm sample("assets/fractal-dragon-curve.pbm");
-		image::netpbm sample("assets/short.pbm"), sample2("assets/short_binary.pbm"),
-			sample3("assets/fractal-dragon-curve.pbm");
+		const std::initializer_list<std::string_view> test_files = {
+			"assets/fractal-dragon-curve.pbm",
+			"assets/j_bin.pbm",
+
+			"assets/fractal-dragon-curve.pgm",
+			"assets/feep.pgm",
+			"assets/feep_bin.pgm",
+
+			"assets/fractal-dragon-curve.ppm",
+			"assets/colors.ppm",
+			"assets/colors_bin.ppm"
+		};
+
+		for (const auto& path : test_files)
+		{
+			image::netpbm parser(path);
+			if (path.ends_with(".pbm"))
+				parser.write(std::format("out/{}", path));
+			else if (path.ends_with(".pgm"))
+				parser.write(std::format("out/{}", path));
+			else
+				parser.write(std::format("out/{}", path));
+		}
 	}
 	catch (image::netpbm::exception& e)
 	{
