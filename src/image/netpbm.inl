@@ -2,6 +2,7 @@ export namespace image
 {
 	class netpbm
 	{
+	public:
 		struct common {
 			size_t width, height;
 			size_t bits;
@@ -20,17 +21,35 @@ export namespace image
 			uint16_t max;
 		};
 
-		logger m_logger {"image:netpbm"};
-
+	private:
 		std::variant<
 			std::monostate,
-			std::unique_ptr<pbm>, std::unique_ptr<pgm>, std::unique_ptr<ppm>
-			> m_current;
+			std::unique_ptr<pbm>, std::unique_ptr<pgm>, std::unique_ptr<ppm>> m_current;
+
+		logger m_logger {"image:netpbm"};
 		
 	public:
+		netpbm()
+		{
+		}
+		
 		netpbm(std::string_view path)
 		{
 			load(path);
+		}
+
+		template<class T>
+		void assign(const T& data)
+		{
+			static_assert((typeid(T) == typeid(pbm))
+						  || (typeid(T) == typeid(pgm))
+						  || (typeid(T) == typeid(ppm)));
+			
+			m_current = std::make_unique<T>();
+			auto& stored = *std::get<std::unique_ptr<T>>(m_current);
+			stored.common = data.common;
+			if constexpr (typeid(T) != typeid(pbm))
+				stored.max = data.max;
 		}
 
 		void load(std::string_view path)
@@ -74,7 +93,7 @@ export namespace image
 			if (m_current.index() != index)
 				exception::enact("Expected variant {}, got {} when writing '{}'", index, m_current.index(), path);
 
-			std::ofstream file(path.data(), std::ios::out | std::ios::trunc);
+			std::ofstream file(path.data(), std::ios::out | std::ios::binary | std::ios::trunc);
 			if (!file.is_open())
 				exception::enact("Failed to open file '{}' for writing", path);
 
@@ -398,7 +417,7 @@ export namespace image
 
 		void write_common(std::ofstream& file, const common& common)
 		{
-			file << "# written by image::netpbm at " __TIME__ " " __DATE__ << '\n';
+			file << "# written by image::netpbm" << '\n';
 			file << common.width << ' ' << common.height << '\n';
 		}
 

@@ -25,7 +25,7 @@ ld_flags = []
 sys_modules = \
     ['print', 'string_view', 'format', 'exception', 'string', 'vector', 'variant', 'cstdint', 'memory',
      'fstream', 'cstring', 'cstddef', 'cstdlib', 'array', 'sstream', 'algorithm', 'limits', 'utility'] + \
-    []
+    ['math.h']
 
 # Properties: is module, primary dependencies
 primaries = {
