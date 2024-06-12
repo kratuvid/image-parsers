@@ -1,24 +1,33 @@
 import <string_view>;
 import <print>;
 
+import logger;
 import image;
 
 int main()
 {
+#ifdef DEBUG
+	logger::init(logger::level::debug);
+#else
+	logger::init();
+#endif
+
+	logger main_logger("main");
+	
 	try
 	{
-		image::netpbm sample("assets/dragon-curve.ppm");
+		image::netpbm sample("assets/fractal-dragon-curve.ppm");
 	}
 	catch (image::netpbm::exception& e)
 	{
-		std::println(stderr, "image::netpbm::exception: {}", e.what());
+		main_logger.critical("image::netpbm::exception: {}", e.what());
 	}
 	catch (image::exception& e)
 	{
-		std::println(stderr, "image::exception: {}", e.what());
+		main_logger.critical("image::exception: {}", e.what());
 	}
 	catch (std::exception& e)
 	{
-		std::println(stderr, "std::exception: {}", e.what());
+		main_logger.critical("std::exception: {}", e.what());
 	}
 }

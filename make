@@ -23,17 +23,19 @@ cxx_flags = ['-fdiagnostics-color=always', '-std=c++23', '-Wno-experimental-head
 ld_flags = []
 
 sys_modules = \
-    ['print', 'string_view', 'format', 'exception', 'string'] + \
+    ['print', 'string_view', 'format', 'exception', 'string', 'vector', 'variant', 'cstdint', 'memory',
+     'fstream', 'cstring', 'cstddef', 'cstdlib', 'array'] + \
     []
 
 # Properties: is module, primary dependencies
 primaries = {
-    'image': [[True, []], ['image.cppm']],
-    'main': [[False, ['image']], ['main.cpp']]
+    'logger': [[True, []], ['logger.cppm']],
+    'image': [[True, ['logger']], ['image.cppm']],
+    'main': [[False, ['image', 'logger']], ['main.cpp']]
 }
 
 targets = {
-    'main': ['main', 'image']
+    'main': ['main', 'image', 'logger']
 }
 
 class Builder:

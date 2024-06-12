@@ -5,6 +5,13 @@ import <format>;
 import <exception>;
 import <string_view>;
 import <string>;
+import <cstdint>;
+import <vector>;
+import <variant>;
+import <memory>;
+import <fstream>;
+
+import logger;
 
 namespace image
 {
