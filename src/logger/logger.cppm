@@ -73,6 +73,8 @@ public:
 	};
 	static constexpr level default_level = level::info;
 
+	static inline size_t ref_count = 0;
+
 public:
 	logger(std::string_view name, level lvl = static_cast<enum level>(-1))
 	{
@@ -82,6 +84,14 @@ public:
 			m_level = current_logger->m_level;
 		} else m_level = default_level;
 		m_name = name;
+		ref_count++;
+	}
+
+	~logger()
+	{
+		ref_count--;
+		if (ref_count == 0)
+			global()->~logger();
 	}
 
 	void level(level lvl)
@@ -100,6 +110,7 @@ public:
 			auto ptr_raw = malloc(sizeof(logger));
 			if (!ptr_raw)
 				exception::enact("Failed to allocate memory for the global logger");
+			memset(ptr_raw, 0, sizeof(logger));
 			_global_logger.reset(std::move(ptr_raw));
 			_global_logger.get<logger>()->m_level = lvl;
 			_global_logger.get<logger>()->m_name = "global";
