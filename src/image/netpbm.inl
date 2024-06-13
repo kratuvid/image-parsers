@@ -129,7 +129,7 @@ export namespace image
 				}
 			}
 			if (c_pbm.common.width == 0 || c_pbm.common.height == 0)
-				exception::enact("Invalid width/height ({}/{}) specified in '{}'", c_pbm.common.width, c_pbm.common.height);
+				exception::enact("Invalid width/height ({}/{}) specified in '{}'", c_pbm.common.width, c_pbm.common.height, path);
 
 			c_pbm.common.bpp = 1;
 			c_pbm.common.bits = c_pbm.common.width * c_pbm.common.height * c_pbm.common.bpp;
