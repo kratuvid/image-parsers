@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 
+import subprocess
 import json
 import os
 import re
@@ -33,8 +34,10 @@ class Baker:
         'flags': {
             'debug': ['-g', '-DDEBUG'],
             'release': ['-O3', '-DNDEBUG'],
+            'base': ['-std=c++23']
         },
         'options': {
+            'cxx': 'clang++'
         },
     }
 
@@ -54,10 +57,27 @@ class Baker:
                 raise ValueError(f'Source of each target must be a list (of strings): {targets}')
 
             self.gen_classes(sources)
+            self.make_directories()
+            self.make_header_units()
             self.build_dependency_tree()
+
+    def make_header_units(self):
+        for header in self.header_units:
+            bmi_path = os.path.join(self.dirs['header_units'], header) + '.pcm'
+            if not os.path.exists(bmi_path):
+                self.run(self.cxx + self.options['flags']['base'] +
+                         ['-Wno-pragma-system-header-outside-header', '--precompile', '-xc++-system-header',
+                          header, '-o', bmi_path])
 
     def build_dependency_tree(self):
         pass
+
+    def make_directories(self):
+        os.makedirs(self.dirs['build'], exist_ok=True)
+        os.makedirs(self.dirs['object'], exist_ok=True)
+        for dir in self.primary_dirs:
+            os.makedirs(os.path.join(self.dirs['object'], dir), exist_ok=True)
+        os.makedirs(self.dirs['header_units'], exist_ok=True)
 
     def gen_classes(self, sources):
         os.chdir(self.options['dirs']['source'])
@@ -69,22 +89,24 @@ class Baker:
             Type.module_impl: {}
         }
         self.header_units = set()
+        self.primary_dirs = set()
 
         for index, source in enumerate(sources):
             if not (source.endswith('.cpp') or source.endswith('.cppm')):
                 raise ValueError('Only .cpp and .cppm files are permitted as the values of targets')
+
+            primary_dir = os.path.dirname(source)
+            if '/' in primary_dir or primary_dir == '':
+                raise ValueError(f'Must have strictly one level of directory for every source: {source}')
+            self.primary_dirs.add(primary_dir)
 
             data = classify(source)
 
             self.header_units.update(data['header_units'])
             children = data['post']
             module = data['module']
-            if True:
-                del data['header_units']
-                del data['post']
 
             node = Node(None, children, **data)
-            print(node)
 
             if data['type'] == Type.plain:
                 self.classes[Type.plain].add(node)
@@ -153,6 +175,13 @@ class Baker:
         self.type = 'release' if 'release' in self.args else 'debug'
         self.type_flags = self.options['flags']['release'] if self.type == 'release' else self.options['flags']['debug']
 
+        self.dirs = {}
+        self.dirs['build'] = os.path.join(self.options['dirs']['build'], self.type)
+        self.dirs['object'] = os.path.join(self.dirs['build'], self.options['dirs']['object'])
+        self.dirs['header_units'] = os.path.join(self.options['dirs']['build'], self.options['dirs']['header_units'])
+
+        self.cxx = [self.options['options']['cxx']]
+
     def parse_args(self):
         i = 1
         self.args = {}
@@ -168,6 +197,13 @@ class Baker:
             else:
                 raise ValueError(f'Unknown argument: {current}')
             i += 1
+
+    def run(self, args):
+        if self.show:
+            eprint(' '.join(args))
+        status = subprocess.run(args)
+        if status.returncode != 0:
+            raise RuntimeError(f'Last command abnormally exited with code {status.returncode}')
 
 if __name__ == '__main__':
     ins = Baker()
