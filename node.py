@@ -20,6 +20,11 @@ class Node:
 
     def __repr__(self):
         s = f'<Node (0x{id(self):x}): parent: ' + self.parent.__repr__()
+        s += ', children: ' + str(len(self.children)) + ', data: '
+        s += self.data.__repr__() + '>'
+        return s
+
+        s = f'<Node (0x{id(self):x}): parent: ' + self.parent.__repr__()
         s += ', children: ['
         for index, child in enumerate(self.children):
             s += child.__repr__()

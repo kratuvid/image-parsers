@@ -34,7 +34,7 @@ class Baker:
         'flags': {
             'debug': ['-g', '-DDEBUG'],
             'release': ['-O3', '-DNDEBUG'],
-            'base': ['-std=c++23']
+            'base': ['-std=c++23', '-Wno-experimental-header-units']
         },
         'options': {
             'cxx': 'clang++'
@@ -61,20 +61,94 @@ class Baker:
             self.make_header_units()
             self.build_dependency_tree()
             self.build_compile_tree()
-            self.compile()
-            self.link()
+            self.compile_all()
+            self.link(target)
 
-    def compile(self):
-        self.walk(self.root_node, 0)
+    def compile_all(self):
+        self.compiles = 0
+        triggered_recompile = self.rebuild
+        triggered_recompile_next = False
 
-    def link(self):
-        pass
-    
+        node = self.last_node
+        siblings_left = list(range(len(node.parent.children))) if node.parent is not None else []
+
+        while True:
+            index = node.parent.children.index(node) if node.parent is not None else None
+            raw_source = node.data['filename']
+            source = os.path.join(self.options['dirs']['source'], raw_source)
+            target = os.path.join(self.dirs['object'], self.removesuffixes(['.cpp', '.cppm'], raw_source) + '.o')
+            is_module = node.data['type'] in [Type.module, Type.module_partition]
+            bmi_target = target.removesuffix('.o') + '.pcm'
+
+            if triggered_recompile or (not os.path.exists(target) or self.is_later(source, target)) \
+               or (is_module and (not os.path.exists(bmi_target) or self.is_later(source, bmi_target))):
+                self.compile(source, target, node)
+                self.compiles += 1
+                triggered_recompile_next = True
+
+            if id(node) == id(self.root_node):
+                break
+
+            del siblings_left[index]
+            if len(siblings_left) > 0:
+                node = node.parent.children[0]
+            else:
+                if triggered_recompile_next:
+                    triggered_recompile = True
+                node = node.parent
+                siblings_left = list(range(len(node.parent.children))) if node.parent is not None else []
+
+    def compile(self, source, target, node):
+        extra_flags = []
+
+        for header in node.data['header_units']:
+            bmi_path = os.path.join(self.dirs['header_units'], header) + '.pcm'
+            extra_flags += ['-fmodule-file=' + bmi_path]
+
+        for module in node.data['post']:
+            filename = ''
+            if module in self.classes[Type.module]:
+                filename = self.classes[Type.module][module].data['filename']
+            elif module in self.classes[Type.module_partition]:
+                filename = self.classes[Type.module_partition][module].data['filename']
+            else:
+                raise RuntimeError(f'{module} not found anywhere. This should have been caught earlier')
+            bmi_path = filename.removesuffix('.cppm') + '.pcm'
+            bmi_path = os.path.join(self.dirs['object'], bmi_path)
+            extra_flags += ['-fmodule-file=' + module + '=' + bmi_path]
+
+        self.run(self.cxx + self.base_flags + self.type_flags + extra_flags + ['-fmodule-output', '-c', source, '-o', target])
+
+    def link(self, target):
+        if self.compiles > 0:
+            self.objects = set()
+            self.collect_objects(self.root_node)
+            self.objects = list(self.objects)
+            target_path = os.path.join(self.dirs['build'], target)
+            self.run(self.cxx + self.base_flags + self.type_flags + self.objects + ['-o', target_path])
+            
+    def collect_objects(self, node):
+        self.objects.add(
+            self.removesuffixes(['.cpp', '.cppm'],
+                                os.path.join(self.dirs['object'], node.data['filename']))
+            + '.o'
+        )
+        for child in node.children:
+            self.collect_objects(child)
+
+    def removesuffixes(self, suffixes, path):
+        for suffix in suffixes:
+            path = path.removesuffix(suffix)
+        return path
+
+    def is_later(self, path, path2):
+        return os.path.getmtime(path) > os.path.getmtime(path2)
+
     def make_header_units(self):
         for header in self.header_units:
             bmi_path = os.path.join(self.dirs['header_units'], header) + '.pcm'
             if not os.path.exists(bmi_path):
-                self.run(self.cxx + self.options['flags']['base'] +
+                self.run(self.cxx + self.base_flags +
                          ['-Wno-pragma-system-header-outside-header', '--precompile', '-xc++-system-header',
                           header, '-o', bmi_path])
 
@@ -108,7 +182,7 @@ class Baker:
         for index, plain in enumerate(self.classes[Type.plain]):
             if id(plain) != id(self.root_node):
                 self.root_node.children += ['@' + str(index)]
-        
+
     def attach_module_impls(self):
         for module_impl in self.classes[Type.module_impl]:
             node = self.classes[Type.module_impl][module_impl]
@@ -178,7 +252,7 @@ class Baker:
             data = classify(source)
 
             self.header_units.update(data['header_units'])
-            children = data['post']
+            children = data['post'].copy()
             module = data['module']
 
             node = Node(None, children, **data)
@@ -251,6 +325,7 @@ class Baker:
 
         self.type = 'release' if 'release' in self.args else 'debug'
         self.type_flags = self.options['flags']['release'] if self.type == 'release' else self.options['flags']['debug']
+        self.base_flags = self.options['flags']['base']
 
         self.dirs = {}
         self.dirs['build'] = os.path.join(self.options['dirs']['build'], self.type)
@@ -264,7 +339,7 @@ class Baker:
         self.args = {}
 
         while i < len(sys.argv):
-            current = sys.argv[1]
+            current = sys.argv[i]
             if current in self.args_nature:
                 count = self.args_nature[current]
                 if i + count >= len(sys.argv):
