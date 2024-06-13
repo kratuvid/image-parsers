@@ -41,7 +41,11 @@ def classify(filename):
                     if not assigned:
                         m_export_import = re.search(re_export_import, stat)
                         if m_export_import is not None:
-                            data['post'] += [m_export_import.groups()[0]]
+                            value = m_export_import.groups()[0]
+                            if value[0] == ':':
+                                assert(data['module'] != '')
+                                value = data['module'] + value
+                            data['post'] += [value]
                             assigned = True
 
                     if not assigned:

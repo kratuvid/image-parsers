@@ -12,7 +12,7 @@ from classify import classify
 
 def eprint(*args, **kwargs):
     print(*args, file=sys.stderr, **kwargs)
-    
+
 class Baker:
     args_nature = {
         'help': 0,
@@ -60,7 +60,16 @@ class Baker:
             self.make_directories()
             self.make_header_units()
             self.build_dependency_tree()
+            self.build_compile_tree()
+            self.compile()
+            self.link()
 
+    def compile(self):
+        self.walk(self.root_node, 0)
+
+    def link(self):
+        pass
+    
     def make_header_units(self):
         for header in self.header_units:
             bmi_path = os.path.join(self.dirs['header_units'], header) + '.pcm'
@@ -69,8 +78,74 @@ class Baker:
                          ['-Wno-pragma-system-header-outside-header', '--precompile', '-xc++-system-header',
                           header, '-o', bmi_path])
 
+    def build_compile_tree(self):
+        self.clip_redundant(self.root_node)
+
+    def clip_redundant(self, node):
+        clip_list = []
+        for index in range(len(node.children)):
+            child = node.children[index]
+            if id(child.parent) != id(node):
+                clip_list += [index]
+
+        for index in clip_list:
+            del node.children[index]
+
+        for child in node.children:
+            self.clip_redundant(child)
+
+    def walk(self, node, depth):
+        print('At depth', depth, 'is a module', node.data['module'], 'backed by', node.data['filename'])
+        for child in node.children:
+            self.walk(child, depth+1)
+
     def build_dependency_tree(self):
-        pass
+        self.attach_plain_sources()
+        self.attach_module_impls()
+        self.fill_children(self.root_node)
+
+    def attach_plain_sources(self):
+        for index, plain in enumerate(self.classes[Type.plain]):
+            if id(plain) != id(self.root_node):
+                self.root_node.children += ['@' + str(index)]
+        
+    def attach_module_impls(self):
+        for module_impl in self.classes[Type.module_impl]:
+            node = self.classes[Type.module_impl][module_impl]
+            for pre in node.data['pre']:
+                if pre in self.classes[Type.module]:
+                    self.classes[Type.module][pre].children += ['#' + module_impl]
+                elif pre in self.classes[Type.module_partition]:
+                    self.classes[Type.module_partition][pre].children += ['#' + module_impl]
+
+    def fill_children(self, node):
+        self.last_node = node
+        module = node.data['module']
+
+        for index, child in enumerate(node.children):
+            if type(child) != str:
+                raise RuntimeError(f'Non-string child {child} of node: {node}')
+
+            if child in self.classes[Type.module]:
+                node.children[index] = self.classes[Type.module][child]
+
+            elif child in self.classes[Type.module_partition]:
+                if module != child.split(':')[0]:
+                    raise RuntimeError(f'Module {module} can\'t import a foreign parition {child}')
+                node.children[index] = self.classes[Type.module_partition][child]
+
+            elif child[0] == '#' and child[1:] in self.classes[Type.module_impl]:
+                node.children[index] = self.classes[Type.module_impl][child[1:]]
+
+            elif child[0] == '@' and int(child[1:]) < len(self.classes[Type.plain]):
+                node.children[index] = self.classes[Type.plain][int(child[1:])]
+
+            else:
+                raise RuntimeError(f'No module {module} is known. Did you forget to include its source?')
+
+        for index in range(len(node.children)):
+            node.children[index].parent = node
+            self.fill_children(node.children[index])
 
     def make_directories(self):
         os.makedirs(self.dirs['build'], exist_ok=True)
@@ -81,7 +156,7 @@ class Baker:
 
     def gen_classes(self, sources):
         os.chdir(self.options['dirs']['source'])
-        
+
         self.classes = {
             Type.plain: set(),
             Type.module: {},
@@ -120,6 +195,8 @@ class Baker:
                     raise ValueError('Source represeting the target (i.e. the very first item in the list) must be plain')
                 self.root_node = node
 
+        self.classes[Type.plain] = list(self.classes[Type.plain])
+
         os.chdir('..')
 
     def load_bakerfile(self):
@@ -132,7 +209,7 @@ class Baker:
 
             if 'targets' not in options:
                 raise ValueError('Must specify targets')
-            
+
             for key in self.options_default:
                 if key in options:
                     self.options[key] = {}
