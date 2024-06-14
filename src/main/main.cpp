@@ -25,7 +25,7 @@ int main()
 			flavor.max = 255;
 
 			auto& common = flavor.common;
-			common.width = common.height = 512;
+			common.width = common.height = 768;
 			common.bpp = 24;
 			common.bits = common.width * common.height * 24;
 			common.data = std::vector<uint8_t>(common.bits / 8, 0);
@@ -47,10 +47,10 @@ int main()
 			};
 
 			// for (float x = -(common.width/2.f); x < common.width/2.f; x += 1e-4f)
-			for (float i = 0.f; i < 2.f * M_PI; i += 1e-3f)
+			for (float i = 0.f; i < 32.f * M_PI; i += 1e-5f)
 			{
-				const float x = cosf(i) * 100.f;
-				const float y = sinf(i) * 100.f;
+				const float x = cosf(i * 3) * (100.f - i);
+				const float y = sinf(i) * (100.f + i);
 
 				set_center(roundf(x), roundf(y), 0xf0'ff'0f);
 			}
