@@ -10,16 +10,17 @@ import image;
 int main()
 {
 #ifdef DEBUG
-	logger::init(logger::level::debug);
+	logger::global_init(logger::level::debug);
 #else
-	logger::init();
+	logger::global_init();
 #endif
 
-	logger main_logger("main");
-	
 	try
 	{
+		logger main_logger("main");
+
 		image::netpbm image;
+
 		{
 			image::netpbm::ppm flavor {};
 			flavor.max = 255;
@@ -57,18 +58,19 @@ int main()
 			
 			image.assign(flavor);
 		}
+
 		image.write("/dev/shm/canvas.ppm");
 	}
 	catch (image::netpbm::exception& e)
 	{
-		main_logger.critical("image::netpbm::exception: {}", e.what());
+		std::println(stderr, "Exception (image::netpbm::exception): {}", e.what());
 	}
 	catch (image::exception& e)
 	{
-		main_logger.critical("image::exception: {}", e.what());
+		std::println(stderr, "Exception (image::exception): {}", e.what());
 	}
 	catch (std::exception& e)
 	{
-		main_logger.critical("std::exception: {}", e.what());
+		std::println(stderr, "Exception (std::exception): {}", e.what());
 	}
 }

@@ -5,34 +5,34 @@ import <string>;
 import <print>;
 import <format>;
 import <string_view>;
-import <cstring>;
 import <cstddef>;
+import <cstring>;
 import <cstdlib>;
 import <exception>;
 
-class _logger_manager
+class logger_manager
 {
 	void* ptr = nullptr;
 
 public:
-	_logger_manager() = default;
-	_logger_manager(const _logger_manager&) = delete;
-	_logger_manager(_logger_manager&&) = delete;
-	~_logger_manager()
-	{
-		if (ptr)
-			free(ptr);
-	}
-
-	_logger_manager& operator=(const _logger_manager&) = delete;
-	_logger_manager& operator=(_logger_manager&&) = delete;
+	logger_manager() = default;
+	logger_manager(const logger_manager&) = delete;
+	logger_manager(logger_manager&&) = delete;
+	logger_manager& operator=(const logger_manager&) = delete;
+	logger_manager& operator=(logger_manager&&) = delete;
 
 	void set(void*&& ptr)
 	{
 		if (this->ptr)
-			throw std::runtime_error("Can set a _logger_manager only once");
+			throw std::runtime_error("logger_manager can only be ::set() once");
+
 		this->ptr = ptr;
 		ptr = nullptr;
+	}
+
+	void unset()
+	{
+		this->ptr = nullptr;
 	}
 
 	auto get_raw() const
@@ -43,11 +43,15 @@ public:
 	template<class T>
 	T* get() const
 	{
-		if (!ptr)
-			std::runtime_error(std::format("Tried to _logger_manager::get() as '{}' when it's uninitialized", typeid(T).name()));
 		return static_cast<T*>(ptr);
 	}
-} _global_logger;
+
+	void ensure_initialized()
+	{
+		if (!ptr)
+			throw std::runtime_error(std::format("Initialize the global logger before attemping to use any of it's functions"));
+	}
+} global_logger_manager;
 
 export class logger
 {
@@ -78,19 +82,23 @@ public:
 public:
 	logger(std::string_view name, level lvl = static_cast<enum level>(-1))
 	{
+		global_logger_manager.ensure_initialized();
+
 		if (static_cast<int>(lvl) == -1)
-		{
 			m_level = global()->m_level;
-		} else m_level = default_level;
+		else
+			m_level = default_level;
 		m_name = name;
+
 		ref_count++;
 	}
 
 	~logger()
 	{
 		ref_count--;
+
 		if (ref_count == 0)
-			global()->~logger();
+			global_destroy();
 	}
 
 	void level(level lvl)
@@ -102,23 +110,26 @@ public:
 		return m_level;
 	}
 
-	static void init(enum level lvl = default_level)
+	static void global_init(enum level lvl = default_level)
 	{
-		if (!_global_logger.get_raw())
+		if (!global_logger_manager.get_raw())
 		{
-			auto ptr_raw = malloc(sizeof(logger));
-			if (!ptr_raw)
-				exception::enact("Failed to allocate memory for the global logger");
-			memset(ptr_raw, 0, sizeof(logger));
-			_global_logger.set(std::move(ptr_raw));
-			global()->m_level = lvl;
+			auto global_logger = malloc(sizeof(logger));
+			if (!global_logger)
+				throw std::runtime_error("Failed to allocate memory for the global logger");
+
+			memset(global_logger, 0, sizeof(logger));
+
+			global_logger_manager.set(std::move(global_logger));
+
 			global()->m_name = "global";
+			global()->m_level = lvl;
 		}
 	}
 
 	static logger* global()
 	{
-		return _global_logger.get<logger>();
+		return global_logger_manager.get<logger>();
 	}
 
 	template<class... Args>
@@ -159,6 +170,15 @@ public:
 	void critical(std::string_view format, Args&&... args)
 	{
 		log(level::criticial, format, args...);
+	}
+
+private:
+	static void global_destroy()
+	{
+		global()->~logger();
+
+		free(global_logger_manager.get_raw());
+		global_logger_manager.unset();
 	}
 
 public:
