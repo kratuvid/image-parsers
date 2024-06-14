@@ -46,14 +46,13 @@ int main()
 				set(center[0] + x, center[1] + -y, with);
 			};
 
-			for (float i = -(common.width/2.f); i < common.width/2.f; i += 1e-4f)
+			// for (float x = -(common.width/2.f); x < common.width/2.f; x += 1e-4f)
+			for (float i = 0.f; i < 2.f * M_PI; i += 1e-3f)
 			{
-				const float x = i;
-				const float xx = x * 0.03f;
-				const float y = sinf(xx) * cosf(xx * 10) * 100.f, y2 = sinf(xx) * 100.f;
+				const float x = cosf(i) * 100.f;
+				const float y = sinf(i) * 100.f;
 
 				set_center(roundf(x), roundf(y), 0xf0'ff'0f);
-				set_center(roundf(x), roundf(y2), 0xa0'ff'0f);
 			}
 			
 			image.assign(flavor);
