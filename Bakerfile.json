@@ -1,5 +1,6 @@
 {
   "targets": {
-	"main": ["main/main.cpp", "image/image.cppm", "image/netpbm.cppm", "image/utility.cppm", "logger/logger.cppm"]
+	  "main": ["main/main.cpp", "logger/logger.cppm",
+			   "image/image.cppm", "image/netpbm.cppm", "image/utility.cppm"]
   }
 }
