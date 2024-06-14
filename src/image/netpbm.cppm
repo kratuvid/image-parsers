@@ -1,6 +1,27 @@
-export namespace image
+export module image:netpbm;
+
+import <print>;
+import <format>;
+import <exception>;
+import <string_view>;
+import <string>;
+import <cstdint>;
+import <vector>;
+import <variant>;
+import <memory>;
+import <fstream>;
+import <sstream>;
+import <cstring>;
+import <algorithm>;
+import <limits>;
+import <utility>;
+
+import :utility;
+import logger;
+
+namespace image
 {
-	class netpbm
+	export class netpbm
 	{
 	public:
 		struct common {
