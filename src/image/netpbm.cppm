@@ -19,12 +19,17 @@ namespace image
 	public: // variable declarations
 		enum class tupltype_t
 		{
-			rgb = 1, bw, gray,
+			rgb, bw, gray,
 			rgb_alpha, bw_alpha, gray_alpha
 		};
 		static constexpr std::array<std::string_view, 6> str_to_tupltype {{
 				"RGB", "BLACKANDWHITE", "GRAYSCALE",
 				"RGB_ALPHA", "BLACKANDWHITE_ALPHA", "GRAYSCALE_ALPHA"
+			}
+		};
+		static constexpr std::array<unsigned, 6> tupltype_planes {{
+				3, 1, 1,
+				4, 2, 2
 			}
 		};
 
@@ -40,11 +45,13 @@ namespace image
 			}
 		};
 
-		using data_t = std::unique_ptr<uint8_t>;
+		using data_t = std::unique_ptr<uint8_t[]>;
 
 	private: // variables
-		header_t header;
+		header_t header {};
+		size_t size {};
 		data_t data;
+
 		logger log {"netpbm"};
 
 	public: // functions - construnction/destruction
@@ -54,6 +61,7 @@ namespace image
 		void load(std::string_view path)
 		{
 			memset(&header, 0, sizeof(header_t));
+			size = 0;
 			data.reset();
 
 			std::ifstream file(path.data(), std::ios::in | std::ios::binary);
@@ -107,6 +115,87 @@ namespace image
 				exception::enact("{}: Unexpected EOF while reading header", path);
 			if (header.incomplete())
 				exception::enact("{}: Some essential header elements are missing/invalid", path);
+
+			const auto planes = get_planes();
+			if (planes != header.depth)
+				exception::enact("{}: depth ({}) != planes ({})", path, header.depth, planes);
+			const size_t sample_size = get_sample_size();
+			if (header.tupltype == tupltype_t::bw && sample_size != 1)
+				exception::enact("{}: A sample size other than one doesn't make sense for the black and white version", path);
+
+			const size_t size = [&] () -> auto {
+				auto begin = file.tellg();
+				file.seekg(0, std::ios::end);
+				auto end = file.tellg();
+				file.seekg(begin);
+				return end - begin;
+			} ();
+			const size_t size_expected = get_size_expected();
+			if (size < size_expected)
+				exception::enact("{}: data's size ({}) < size expected ({})", path, size, size_expected);
+			else if (size > size_expected)
+				log.warn("{}: data's size({}) > size expected ({})", path, size, size_expected);
+
+			this->size = size_expected;
+			data = std::make_unique<uint8_t[]>(this->size);
+			if (!file.read(reinterpret_cast<char*>(data.get()), size_expected))
+				exception::enact("{}: failed to read {} B of data", path, size_expected);
+
+			log_header(path);
+			log.debug("{}: read {} B of data", path, this->size);
+		}
+
+		void save(std::string_view path)
+		{
+			if (header.incomplete() || size == 0 || !data)
+				exception::enact("{}: invalid header or non-existent data", path);
+
+			const auto planes = get_planes();
+			if (planes != header.depth)
+				exception::enact("{}: depth ({}) != planes ({})", path, header.depth, planes);
+
+			const auto size_expected = get_size_expected();
+			if (size != size_expected)
+				exception::enact("{}: data's size ({}) != size expected ({})", path, size, size_expected);
+
+			std::ofstream file(path.data(), std::ios::out | std::ios::binary | std::ios::trunc);
+			if (!file.is_open())
+				exception::enact("{}: failed to open file for saving", path);
+
+			file << "P7" << '\n';
+			file << "WIDTH " << header.width << '\n'
+				 << "HEIGHT " << header.height << '\n'
+				 << "DEPTH " << (uint16_t)header.depth << '\n'
+				 << "MAXVAL " << (uint16_t)header.maxval << '\n'
+				 << "TUPLTYPE " << str_to_tupltype[static_cast<int>(header.tupltype) - 1] << '\n'
+				 << "ENDHDR" << '\n';
+			file.write(reinterpret_cast<char*>(data.get()), size);
+
+			log_header(path);
+			log.debug("{}: written {} B of data", path, size);
+		}
+
+	private: //helppers
+		void log_header(std::string_view path)
+		{
+			log.debug("{}: width: {}, height: {}, depth: {}, maxval: {}, tupltype: {}", path,
+					  header.width, header.height, header.depth, header.maxval,
+					  str_to_tupltype[static_cast<int>(header.tupltype) - 1]);
+		}
+
+		inline size_t get_planes()
+		{
+			return tupltype_planes[static_cast<int>(header.tupltype) - 1];
+		}
+
+		inline size_t get_sample_size()
+		{
+			return header.maxval > 255 ? 2 : 1;
+		}
+
+		inline size_t get_size_expected()
+		{
+			return header.width * header.height * header.depth * get_sample_size();
 		}
 
 	public: // miscellaneous
@@ -114,7 +203,7 @@ namespace image
 		{
 		public:
 			exception(std::string_view msg) :image::exception(msg) {}
-			
+
 			template<class... Args>
 			static void enact(const std::format_string<const Args&...>& format, const Args&... args)
 			{

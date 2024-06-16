@@ -26,6 +26,9 @@ int main()
 			}
 		};
 
+		all_images[0].save("/dev/shm/cross.pam");
+		all_images[1].save("/dev/shm/cross_gray.pam");
+
 		/*
 		{
 			image::netpbm::ppm flavor {};
