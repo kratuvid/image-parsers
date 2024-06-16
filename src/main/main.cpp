@@ -1,75 +1,78 @@
-import <string_view>;
-import <print>;
-import <vector>;
+import <cstring>;
 import <math.h>;
-import <complex>;
-import <array>;
+import <memory>;
+import <print>;
+import <string_view>;
 
-import logger;
 import image;
+import logger;
 
-int main()
+int main(int argc, char** argv)
 {
-#ifdef DEBUG
 	logger::global_init(logger::level::debug);
-#else
-	logger::global_init();
-#endif
 
 	try
 	{
-		logger main_logger("main");
+		using image::netpbm;
 
-		std::array<image::netpbm, 2> all_images {{
-				{"assets/cross.pam"},
-				{"assets/cross_gray.pam"}
+		logger log("main");
+
+		netpbm::header_t header;
+		size_t size = 0;
+		netpbm::data_t data;
+
+		header.width = header.height = 768;
+		header.depth = 3;
+		header.maxval = 255;
+		header.tupltype = netpbm::tupltype_t::rgb;
+
+		size = header.width * header.height * header.depth * 1;
+		data = std::make_unique<uint8_t[]>(size);
+
+		auto setabs = [&] (int x, int y, uint32_t color) {
+			if (x >= 0 and x < header.width and y >= 0 and y < header.height)
+			{
+				const uint32_t lower = color & 0xff;
+				color &= 0xffff00;
+				color |= (color >> 16) & 0xff;
+				color &= 0x00ffff;
+				color |= lower << 16;
+
+				const size_t location = (y * header.width + x) * 3;
+				*(reinterpret_cast<uint32_t*>(data.get() + location)) = color;
 			}
 		};
 
-		all_images[0].save("/dev/shm/cross.pam");
-		all_images[1].save("/dev/shm/cross_gray.pam");
+		auto set = [&] (int x, int y, uint32_t color) {
+			const int half[2] = {header.width / 2, header.height / 2};
+			setabs(x + half[0], -y + half[1], color);
+		};
 
-		/*
-		{
-			image::netpbm::ppm flavor {};
-			flavor.max = 255;
+		auto setf = [&] (float x, float y, uint32_t color) {
+			set(roundf(x), roundf(y), color);
+		};
 
-			auto& common = flavor.common;
-			common.width = common.height = 768;
-			common.bpp = 24;
-			common.bits = common.width * common.height * 24;
-			common.data = std::vector<uint8_t>(common.bits / 8, 0);
-
-			auto& data = common.data;
-
-			auto set = [&] (int x, int y, uint32_t with) {
-				if ((x >= 0 && x < common.width) && (y >= 0 && y < common.height))
-				{
-					const int land = (y * int(common.height) + x) * 3;
-					data[land] = with & 0xff;
-					data[land+1] = (with >> 8) & 0xff;
-					data[land+2] = (with >> 16) & 0xff;
-				}
-			};
-			auto set_center = [&] (int x, int y, uint32_t with) {
-				const int center[2] = {int(common.width) / 2, int(common.height) / 2};
-				set(center[0] + x, center[1] + -y, with);
-			};
-
-			// for (float x = -(common.width/2.f); x < common.width/2.f; x += 1e-4f)
-			for (float i = 0.f; i < 32.f * M_PI; i += 1e-5f)
+		auto rect = [&] (int bottom_left[2], int top_right[2], uint32_t color) {
+			for (int y = bottom_left[1]; y < top_right[1]; y++)
 			{
-				const float x = cosf(i * 3) * (100.f - i);
-				const float y = sinf(i) * (100.f + i);
-
-				set_center(roundf(x), roundf(y), 0xf0'ff'0f);
+				for (int x = bottom_left[0]; x < top_right[0]; x++)
+				{
+					set(x, y, color);
+				}
 			}
-			
-			image.assign(flavor);
+		};
+
+		const float granularity = 1e-2f;
+		for (float b = -header.width/2.f; b < header.width/2.f; b += granularity)
+		{
+			float x = b;
+			float y = x * 2;
+			setf(x, y, 0xff0000);
 		}
 
-		image.write("/dev/shm/canvas.ppm");
-		*/
+		netpbm writer;
+		writer.load(header, size, data);
+		writer.save("/dev/shm/canvas.pam");
 	}
 	catch (image::netpbm::exception& e)
 	{

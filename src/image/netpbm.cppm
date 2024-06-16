@@ -1,5 +1,6 @@
 export module image:netpbm;
 
+import <print>;
 import <array>;
 import <cstdint>;
 import <cstring>;
@@ -19,7 +20,7 @@ namespace image
 	public: // variable declarations
 		enum class tupltype_t
 		{
-			rgb, bw, gray,
+			rgb = 1, bw, gray,
 			rgb_alpha, bw_alpha, gray_alpha
 		};
 		static constexpr std::array<std::string_view, 6> str_to_tupltype {{
@@ -57,6 +58,19 @@ namespace image
 	public: // functions - construnction/destruction
 		netpbm() { static_assert(sizeof(char) == 1); }
 		netpbm(std::string_view path) { load(path); }
+
+		void load(const header_t& header, size_t size, const data_t& data)
+		{
+			this->header = header;
+
+			const auto size_expected = get_size_expected();
+			if (size != size_expected)
+				exception::enact("data's size ({}) != size expected ({})", size, size_expected);
+			this->size = size;
+
+			this->data = std::make_unique<uint8_t[]>(size);
+			memcpy(this->data.get(), data.get(), size);
+		}
 
 		void load(std::string_view path)
 		{
@@ -142,21 +156,17 @@ namespace image
 				exception::enact("{}: failed to read {} B of data", path, size_expected);
 
 			log_header(path);
-			log.debug("{}: read {} B of data", path, this->size);
+			log.debug("{}: read {} KiB of data", path, this->size / 1024);
 		}
 
 		void save(std::string_view path)
 		{
-			if (header.incomplete() || size == 0 || !data)
+			if (header.incomplete() || size == 0 || (!data.get()))
 				exception::enact("{}: invalid header or non-existent data", path);
 
 			const auto planes = get_planes();
 			if (planes != header.depth)
 				exception::enact("{}: depth ({}) != planes ({})", path, header.depth, planes);
-
-			const auto size_expected = get_size_expected();
-			if (size != size_expected)
-				exception::enact("{}: data's size ({}) != size expected ({})", path, size, size_expected);
 
 			std::ofstream file(path.data(), std::ios::out | std::ios::binary | std::ios::trunc);
 			if (!file.is_open())
@@ -172,10 +182,10 @@ namespace image
 			file.write(reinterpret_cast<char*>(data.get()), size);
 
 			log_header(path);
-			log.debug("{}: written {} B of data", path, size);
+			log.debug("{}: written {} KiB of data", path, size / 1024);
 		}
 
-	private: //helppers
+	private: //helpers
 		void log_header(std::string_view path)
 		{
 			log.debug("{}: width: {}, height: {}, depth: {}, maxval: {}, tupltype: {}", path,
