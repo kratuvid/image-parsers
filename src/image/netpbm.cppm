@@ -66,8 +66,8 @@ namespace image
 			const auto size_expected = get_size_expected();
 			if (size != size_expected)
 				exception::enact("data's size ({}) != size expected ({})", size, size_expected);
-			this->size = size;
 
+			this->size = size;
 			this->data = std::make_unique<uint8_t[]>(size);
 			memcpy(this->data.get(), data.get(), size);
 		}
@@ -159,6 +159,19 @@ namespace image
 			log.debug("{}: read {} KiB of data", path, this->size / 1024);
 		}
 
+		void save(header_t* header, size_t* size, data_t* data)
+		{
+			if (header)
+				*header = this->header;
+			if (size)
+				*size = this->size;
+			if (data)
+			{
+				*data = std::make_unique<uint8_t[]>(this->size);
+				memcpy(data->get(), this->data.get(), this->size);
+			}
+		}
+
 		void save(std::string_view path)
 		{
 			if (header.incomplete() || size == 0 || (!data.get()))
@@ -182,7 +195,7 @@ namespace image
 			file.write(reinterpret_cast<char*>(data.get()), size);
 
 			log_header(path);
-			log.debug("{}: written {} KiB of data", path, size / 1024);
+			log.debug("{}: wrote {} KiB of data", path, size / 1024);
 		}
 
 	private: //helpers
