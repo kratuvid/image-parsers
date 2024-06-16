@@ -3,6 +3,7 @@ import <print>;
 import <vector>;
 import <math.h>;
 import <complex>;
+import <array>;
 
 import logger;
 import image;
@@ -19,8 +20,13 @@ int main()
 	{
 		logger main_logger("main");
 
-		image::netpbm image;
+		std::array<image::netpbm, 2> all_images {{
+				{"assets/cross.pam"},
+				{"assets/cross_gray.pam"}
+			}
+		};
 
+		/*
 		{
 			image::netpbm::ppm flavor {};
 			flavor.max = 255;
@@ -60,6 +66,7 @@ int main()
 		}
 
 		image.write("/dev/shm/canvas.ppm");
+		*/
 	}
 	catch (image::netpbm::exception& e)
 	{

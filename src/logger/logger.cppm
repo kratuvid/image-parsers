@@ -1,14 +1,14 @@
 export module logger;
 
 import <array>;
-import <string>;
-import <print>;
-import <format>;
-import <string_view>;
 import <cstddef>;
-import <cstring>;
 import <cstdlib>;
+import <cstring>;
 import <exception>;
+import <format>;
+import <print>;
+import <string>;
+import <string_view>;
 
 class logger_manager
 {
@@ -69,13 +69,13 @@ public:
 	} m_level;
 	std::string m_name;
 
-	static constexpr std::array<std::string, 6> level_str {
-		"debug",
-		"info",
-		"warn",
-		"error",
-		"critical",
-		"off"
+	static constexpr std::array<std::string_view, 6> level_str {
+		"DEBUG",
+		"INFO",
+		"WARN",
+		"ERROR",
+		"CRITICAL",
+		"OFF"
 	};
 	static constexpr level default_level = level::info;
 
@@ -110,6 +110,11 @@ public:
 		return m_level;
 	}
 
+	static logger* global()
+	{
+		return global_logger_manager.get<logger>();
+	}
+
 	static void global_init(enum level lvl = default_level)
 	{
 		if (!global_logger_manager.get_raw())
@@ -127,13 +132,50 @@ public:
 		}
 	}
 
-	static logger* global()
+	/* std::format_string based functions */
+
+	template<class... Args>
+	void log(enum level lvl, const std::format_string<const Args&...>& format, const Args&... args)
 	{
-		return global_logger_manager.get<logger>();
+		const auto msg = std::format(format, args...);
+		if (static_cast<int>(lvl) >= static_cast<int>(global()->m_level) && lvl != level::off)
+			std::println(stderr, "[{}] {}: {}", level_str[static_cast<int>(lvl)], m_name, msg);
 	}
 
 	template<class... Args>
-	void log(enum level lvl, const std::string_view format, Args&&... args)
+	void debug(const std::format_string<const Args&...>& format, const Args&... args)
+	{
+		log(level::debug, format, args...);
+	}
+
+	template<class... Args>
+	void info(const std::format_string<const Args&...>& format, const Args&... args)
+	{
+		log(level::info, format, args...);
+	}
+
+	template<class... Args>
+	void warn(const std::format_string<const Args&...>& format, const Args&... args)
+	{
+		log(level::warn, format, args...);
+	}
+
+	template<class... Args>
+	void error(const std::format_string<const Args&...>& format, const Args&... args)
+	{
+		log(level::error, format, args...);
+	}
+
+	template<class... Args>
+	void critical(const std::format_string<const Args&...>& format, const Args&... args)
+	{
+		log(level::criticial, format, args...);
+	}
+
+	/* std::string_view based functions ... */
+
+	template<class... Args>
+	void vlog(enum level lvl, const std::string_view format, Args&&... args)
 	{
 		if (static_cast<int>(lvl) >= static_cast<int>(global()->m_level) && lvl != level::off)
 			std::vprint_unicode(
@@ -143,33 +185,33 @@ public:
 	}
 
 	template<class... Args>
-	void debug(std::string_view format, Args&&... args)
+	void vdebug(std::string_view format, Args&&... args)
 	{
-		log(level::debug, format, args...);
+		vlog(level::debug, format, args...);
 	}
 
 	template<class... Args>
-	void info(std::string_view format, Args&&... args)
+	void vinfo(std::string_view format, Args&&... args)
 	{
-		log(level::info, format, args...);
+		vlog(level::info, format, args...);
 	}
 
 	template<class... Args>
-	void warn(std::string_view format, Args&&... args)
+	void vwarn(std::string_view format, Args&&... args)
 	{
-		log(level::warn, format, args...);
+		vlog(level::warn, format, args...);
 	}
 
 	template<class... Args>
-	void error(std::string_view format, Args&&... args)
+	void verror(std::string_view format, Args&&... args)
 	{
-		log(level::error, format, args...);
+		vlog(level::error, format, args...);
 	}
 
 	template<class... Args>
-	void critical(std::string_view format, Args&&... args)
+	void vcritical(std::string_view format, Args&&... args)
 	{
-		log(level::criticial, format, args...);
+		vlog(level::criticial, format, args...);
 	}
 
 private:
