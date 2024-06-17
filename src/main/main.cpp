@@ -22,7 +22,7 @@ int main(int argc, char** argv)
 		size_t size = 0;
 		netpbm::data_t data;
 
-		if (false)
+		if (1)
 		{
 			header.width = header.height = 1024;
 			header.depth = 3;
@@ -43,21 +43,16 @@ int main(int argc, char** argv)
 		auto setabs = [&] (int x, int y, uint32_t color) -> bool {
 			if (x >= 0 && x < header.width && y >= 0 && y < header.height)
 			{
-				if (0)
-				{
-					const uint32_t bytes[3] = {
-						color & 0xff,
-						(color >> 8) & 0xff,
-						(color >> 16) & 0xff
-					};
-					color = bytes[0] << 16 | bytes[1] << 8 | bytes[2];
-				}
-
 				const size_t location = (y * header.width + x) * 3;
-				*reinterpret_cast<uint32_t*>(data.get() + location) = color;
+
+				auto pixel_ptr = data.get() + location;
+				pixel_ptr[0] = color & 0xff;
+				pixel_ptr[1] = (color >> 8) & 0xff;
+				pixel_ptr[2] = (color >> 16) & 0xff;
+
 				return true;
 			}
-			return false;
+			else return false;
 		};
 		auto seti = [&] (int x, int y, uint32_t color) -> bool {
 			const int half[2] = {header.width / 2, header.height / 2};
@@ -71,11 +66,16 @@ int main(int argc, char** argv)
 			if (x >= 0 && x < header.width && y >= 0 && y < header.height)
 			{
 				const size_t location = (y * header.width + x) * 3;
-				return (uint32_t(data.get()[location]) << 0)
-					| (uint32_t(data.get()[location+1]) << 8)
-					| (uint32_t(data.get()[location+2]) << 16);
+				const auto source_pixel_ptr = data.get() + location;
+
+				uint32_t pixel;
+				pixel = source_pixel_ptr[0];
+				pixel |= source_pixel_ptr[1] << 8;
+				pixel |= source_pixel_ptr[2] << 16;
+
+				return pixel;
 			}
-			return 0;
+			else return 0;
 		};
 		auto geti = [&] (int x, int y) -> uint32_t {
 			const int half[2] = {header.width / 2, header.height / 2};
@@ -95,14 +95,14 @@ int main(int argc, char** argv)
 			}
 		};
 
-		const double granularity = 1.0e-4;
+		const double granularity = 9.0e-4;
 
-		for (double m = -200; m <= 200; m += 0.25)
+		for (double m = -200; m <= 200; m += 1)
 		for (double b = -header.width/2.0; b <= header.width/2.0; b += granularity)
 		{
 			double x = b;
 			double y = x * m;
-			// set(x, y, 0xff00ff);
+			set(x, y, 0x0000ff);
 		}
 
 		// for (double r = 0.0; r <= header.width/2.0; r += 5.0)
@@ -111,11 +111,11 @@ int main(int argc, char** argv)
 			const double radius = 400.0;
 			double x = cos(b) * radius;
 			double y = sin(b) * radius;
-			// seti(x, y, 0xffffff);
+			// set(x, y, 0x0000ff);
 		}
 
-		constexpr int each = 2;
-		if (0)
+		constexpr int each = 4;
+		if (1)
 		for (int y=0; y < header.height - each - 1; y += each)
 		{
 			for (int x = 0; x < header.width - each - 1; x += each)
@@ -129,8 +129,7 @@ int main(int argc, char** argv)
 				for (int iy = 0; iy < each; iy++)
 					for (int ix = 0; ix < each; ix++)
 						average += r[iy * each + ix];
-				average = 0xff'ff'ff'ff - average;
-				// average += each * each;
+				average /= each * each;
 
 				for (int iy = 0; iy < each; iy++)
 					for (int ix = 0; ix < each; ix++)
@@ -138,7 +137,7 @@ int main(int argc, char** argv)
 			}
 		}
 
-		if (1)
+		if (0)
 		for (int y = 0; y < header.height; y++)
 		{
 			for (int x = 0; x < header.width; x++)
@@ -147,6 +146,12 @@ int main(int argc, char** argv)
 			}
 		}
 
+		if (0)
+		for (size_t i=0; i < size; i++)
+		{
+			auto in = data[i];
+			data[i] = in;
+		}
 
 		netpbm writer;
 		writer.load(header, size, data);
