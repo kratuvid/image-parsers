@@ -111,10 +111,10 @@ int main(int argc, char** argv)
 		for (double r = r_max; r >= r_min; r -= 0.5)
 		for (double b = 0.0; b < 2.0 * M_PI; b += granularity)
 		{
-			const double radius = r;
+			const double radius = r * 1.25;
 			double x = cos(b) * radius;
 			double y = sin(b) * radius;
-			set(x, y, 0x0000ff + (uint32_t((r_max - r) * 1.2) << 8));
+			set(x, y, 0x000000 + (uint32_t((r_max - r) * sin(b*4)) << 8));
 		}
 
 		constexpr int each = 20;
