@@ -32,7 +32,7 @@ int main(int argc, char** argv)
 			size = header.width * header.height * header.depth * 1;
 			data = std::make_unique<uint8_t[]>(size);
 
-			memset(data.get(), 0, size);
+			memset(data.get(), 0x00, size);
 		}
 		else
 		{
@@ -95,8 +95,9 @@ int main(int argc, char** argv)
 			}
 		};
 
-		const double granularity = 9.0e-4;
+		const double granularity = 5.0e-4;
 
+		if (0)
 		for (double m = -200; m <= 200; m += 1)
 		for (double b = -header.width/2.0; b <= header.width/2.0; b += granularity)
 		{
@@ -105,27 +106,29 @@ int main(int argc, char** argv)
 			set(x, y, 0x0000ff);
 		}
 
-		// for (double r = 0.0; r <= header.width/2.0; r += 5.0)
+		const double r_max = 400, r_min = 200;
+		if (1)
+		for (double r = r_max; r >= r_min; r -= 0.5)
 		for (double b = 0.0; b < 2.0 * M_PI; b += granularity)
 		{
-			const double radius = 400.0;
+			const double radius = r;
 			double x = cos(b) * radius;
 			double y = sin(b) * radius;
-			// set(x, y, 0x0000ff);
+			set(x, y, 0x0000ff + (uint32_t((r_max - r) * 1.2) << 8));
 		}
 
-		constexpr int each = 4;
-		if (1)
+		constexpr int each = 20;
+		if (0)
 		for (int y=0; y < header.height - each - 1; y += each)
 		{
 			for (int x = 0; x < header.width - each - 1; x += each)
 			{
-				uint32_t r[each * each];
+				uint64_t r[each * each];
 				for (int iy = 0; iy < each; iy++)
 					for (int ix = 0; ix < each; ix++)
 						r[iy * each + ix] = getabs(ix + x, iy + y);
 
-				uint32_t average = 0;
+				uint64_t average = 0;
 				for (int iy = 0; iy < each; iy++)
 					for (int ix = 0; ix < each; ix++)
 						average += r[iy * each + ix];
